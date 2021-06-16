@@ -16,6 +16,17 @@ const connection = new Pool({
   database: "boardcamp",
 });
 
+app.get("/categories", async (req, res) => {
+  try {
+    const categories = await connection.query("SELECT * FROM categories");
+
+    res.send(categories.rows);
+  } catch (err) {
+    console.log(err.message);
+    res.sendStatus(500);
+  }
+});
+
 app.listen(4000, () => {
   console.log("server running at port 4000");
 });
