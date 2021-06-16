@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
+import joi from "joi";
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,34 @@ app.get("/categories", async (req, res) => {
     console.log(err.message);
     res.sendStatus(500);
   }
+});
+
+app.post("/categories", async (req, res) => {
+  const name = req.body.name.trim();
+
+  if (name === "") {
+    return res.sendStatus(400);
+  }
+
+  try {
+    const category = await connection.query(
+      "SELECT * FROM categories WHERE name ILIKE $1",
+      [name]
+    );
+
+    if (category.rows.length === 0) {
+      await connection.query("INSERT INTO categories (name) VALUES ($1)", [
+        name,
+      ]);
+      return res.sendStatus(200);
+    } else {
+      return res.sendStatus(409);
+    }
+  } catch (e) {
+    console.log(e);
+  }
+
+  res.send(name);
 });
 
 app.listen(4000, () => {
