@@ -134,6 +134,27 @@ app.get("/customers", async (req, res) => {
     res.sendStatus(500);
   }
 });
+
+app.get("/customers/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const customer = await connection.query(
+      "SELECT * FROM customers WHERE id = $1;",
+      [id]
+    );
+
+    if (customer.rows.length === 0) {
+      return res.sendStatus(400);
+    }
+
+    res.send(customer.rows);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
 // ############# STARTING SERVER  ###############
 
 app.listen(4000, () => {
