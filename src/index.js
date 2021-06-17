@@ -197,6 +197,39 @@ app.post("/customers", async (req, res) => {
   }
 });
 
+app.put("/customers/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const validation = customerSchema.validate(req.body);
+
+    if (!!validation.error) {
+      console.log(validation.error.details);
+      return res.sendStatus(400);
+    }
+
+    const { name, phone, cpf, birthday } = req.body;
+
+    const customer = await connection.query(
+      "SELECT * FROM customers WHERE cpf LIKE $1 AND id <> $2",
+      [cpf, id]
+    );
+
+    if (customer.rows.length !== 0) {
+      return res.sendStatus(409);
+    }
+
+    await connection.query(
+      "UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday=$4 WHERE id = $5",
+      [name, phone, cpf, birthday, id]
+    );
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.log(err.message);
+    res.sendStatus(500);
+  }
+});
+
 // ############# STARTING SERVER  ###############
 
 app.listen(4000, () => {
