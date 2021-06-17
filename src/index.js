@@ -118,7 +118,22 @@ app.post("/games", async (req, res) => {
     res.sendStatus(500);
   }
 });
+// #############  CUSTOMER ROUTES  ###############
+app.get("/customers", async (req, res) => {
+  try {
+    const searchedCpf = req.query.cpf ? `${req.query.cpf}%` : "%";
 
+    const customers = await connection.query(
+      "SELECT * FROM customers WHERE cpf ILIKE $1;",
+      [searchedCpf]
+    );
+
+    res.send(customers.rows);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
 // ############# STARTING SERVER  ###############
 
 app.listen(4000, () => {
