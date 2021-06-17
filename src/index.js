@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
-import joi from "joi";
+
+import Joi from "joi";
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,8 @@ const connection = new Pool({
   port: 5432,
   database: "boardcamp",
 });
+
+// ############# CATEGORIES ROUTES ###############
 
 app.get("/categories", async (req, res) => {
   try {
@@ -45,16 +48,31 @@ app.post("/categories", async (req, res) => {
       await connection.query("INSERT INTO categories (name) VALUES ($1)", [
         name,
       ]);
-      return res.sendStatus(200);
+      return res.sendStatus(201);
     } else {
       return res.sendStatus(409);
     }
   } catch (e) {
     console.log(e);
   }
-
-  res.send(name);
 });
+
+// ############# GAMES ROUTES ###############
+
+app.get("/games", async (req, res) => {
+  try {
+    const games = await connection.query(
+      'SELECT g.*, c.name as "categoryName" FROM games g LEFT JOIN categories c ON "categoryId" = c.id;'
+    );
+
+    res.send(games.rows);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+// ############# STARTING SERVER  ###############
 
 app.listen(4000, () => {
   console.log("server running at port 4000");
