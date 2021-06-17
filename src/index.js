@@ -61,8 +61,11 @@ app.post("/categories", async (req, res) => {
 
 app.get("/games", async (req, res) => {
   try {
+    const searchedName = req.query.name ? `${req.query.name}%` : "%";
+
     const games = await connection.query(
-      'SELECT g.*, c.name as "categoryName" FROM games g LEFT JOIN categories c ON "categoryId" = c.id;'
+      'SELECT g.*, c.name as "categoryName" FROM games g LEFT JOIN categories c ON "categoryId" = c.id WHERE g.name ILIKE $1;',
+      [searchedName]
     );
 
     res.send(games.rows);
