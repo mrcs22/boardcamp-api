@@ -72,6 +72,50 @@ app.get("/games", async (req, res) => {
   }
 });
 
+app.post("/games", async (req, res) => {
+  try {
+    const categories = await connection.query("SELECT * FROM categories");
+    const categoryIds = categories.rows.map((c) => c.id);
+
+    const gameSchema = Joi.object({
+      name: Joi.string().required(),
+      image: Joi.string().allow(""),
+      stockTotal: Joi.number().greater(0).required(),
+      categoryId: Joi.number()
+        .valid(...categoryIds)
+        .required(),
+      pricePerDay: Joi.number().greater(0).required(),
+    });
+
+    const validation = gameSchema.validate(req.body);
+
+    if (!!validation.error) {
+      console.log(validation.error.details[0].message);
+      return res.sendStatus(400);
+    }
+
+    const { name, stockTotal, image, categoryId, pricePerDay } = req.body;
+
+    const game = await connection.query(
+      "SELECT * FROM games WHERE name ILIKE $1",
+      [name]
+    );
+
+    if (game.rows.length === 0) {
+      await connection.query(
+        'INSERT INTO games (name, "stockTotal", image, "categoryId", "pricePerDay") VALUES ($1,$2,$3,$4,$5)',
+        [name, stockTotal, image, categoryId, pricePerDay]
+      );
+      return res.sendStatus(201);
+    }
+
+    res.sendStatus(409);
+  } catch (err) {
+    console.log(err.message);
+    res.sendStatus(500);
+  }
+});
+
 // ############# STARTING SERVER  ###############
 
 app.listen(4000, () => {
