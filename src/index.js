@@ -119,6 +119,17 @@ app.post("/games", async (req, res) => {
   }
 });
 // #############  CUSTOMER ROUTES  ###############
+const customerSchema = Joi.object({
+  name: Joi.string().required(),
+  phone: Joi.string()
+    .pattern(/^[0-9]{10,11}$/)
+    .required(),
+  cpf: Joi.string()
+    .pattern(/^[0-9]{11}$/)
+    .required(),
+  birthday: Joi.date().iso().less("now"),
+});
+
 app.get("/customers", async (req, res) => {
   try {
     const searchedCpf = req.query.cpf ? `${req.query.cpf}%` : "%";
@@ -148,9 +159,40 @@ app.get("/customers/:id", async (req, res) => {
       return res.sendStatus(400);
     }
 
-    res.send(customer.rows);
+    res.send(customer.rows[0]);
   } catch (err) {
     console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+app.post("/customers", async (req, res) => {
+  try {
+    const validation = customerSchema.validate(req.body);
+
+    if (!!validation.error) {
+      return res.sendStatus(400);
+    }
+
+    const { name, phone, cpf, birthday } = req.body;
+
+    const customer = await connection.query(
+      "SELECT * FROM customers WHERE cpf LIKE $1",
+      [cpf]
+    );
+
+    if (customer.rows.length !== 0) {
+      return res.sendStatus(409);
+    }
+
+    await connection.query(
+      "INSERT INTO customers (name,phone,cpf,birthday) VALUES ($1,$2,$3,$4)",
+      [name, phone, cpf, birthday]
+    );
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.log(err.message);
     res.sendStatus(500);
   }
 });
