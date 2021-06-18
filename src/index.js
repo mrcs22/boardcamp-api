@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
+pg.types.setTypeParser(1082, (str) => str);
 
 import Joi from "joi";
 
@@ -82,7 +83,7 @@ app.post("/games", async (req, res) => {
 
     const gameSchema = Joi.object({
       name: Joi.string().required(),
-      image: Joi.string().allow(""),
+      image: Joi.string().allow("").required(),
       stockTotal: Joi.number().greater(0).required(),
       categoryId: Joi.number()
         .valid(...categoryIds)
@@ -119,6 +120,7 @@ app.post("/games", async (req, res) => {
   }
 });
 // #############  CUSTOMER ROUTES  ###############
+
 const customerSchema = Joi.object({
   name: Joi.string().required(),
   phone: Joi.string()
@@ -226,6 +228,83 @@ app.put("/customers/:id", async (req, res) => {
     res.sendStatus(200);
   } catch (err) {
     console.log(err.message);
+    res.sendStatus(500);
+  }
+});
+
+// #############  RENTAL ROUTES  ###############
+
+app.get("/rentals", async (req, res) => {
+  const { customerId, gameId } = req.query;
+  const isThereQueryParams = !!customerId || !!gameId;
+  let statement = "";
+  let dependences = [];
+
+  if (isThereQueryParams) {
+    if (!!customerId && !!gameId) {
+      statement = 'WHERE r."customerId" = $1 AND r."gameId" = $2';
+      dependences = [customerId, gameId];
+    } else {
+      statement = `WHERE r.${!!customerId ? '"customerId"' : '"gameId"'} = $1`;
+      dependences = [customerId ? customerId : gameId];
+    }
+  }
+
+  try {
+    let rentals = await connection.query(
+      `
+      SELECT r.*, c.name as customer_name, g.name as game_name, g."categoryId", categories.name as "categoryName"
+      FROM
+      rentals r JOIN customers c
+      ON r."customerId" = c.id
+      JOIN games g
+      ON g.id = r."gameId"
+      JOIN categories
+      ON categories.id = g."categoryId"
+    ${statement}
+      `,
+      dependences
+    );
+
+    rentals = rentals.rows.map((r) => {
+      const {
+        id,
+        customerId,
+        gameId,
+        rentDate,
+        daysRented,
+        returnDate,
+        originalPrice,
+        delayFee,
+        categoryId,
+        categoryName,
+      } = r;
+
+      return {
+        id,
+        customerId,
+        gameId,
+        rentDate,
+        daysRented,
+        returnDate,
+        originalPrice,
+        delayFee,
+        customer: {
+          id: customerId,
+          name: r.customer_name,
+        },
+        game: {
+          id: gameId,
+          name: r.game_name,
+          categoryId,
+          categoryName,
+        },
+      };
+    });
+
+    res.send(rentals);
+  } catch (error) {
+    console.log(error);
     res.sendStatus(500);
   }
 });
