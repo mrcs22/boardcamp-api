@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import dayjs from "dayjs";
 import pg from "pg";
 pg.types.setTypeParser(1082, (str) => str);
 
@@ -305,6 +306,60 @@ app.get("/rentals", async (req, res) => {
     res.send(rentals);
   } catch (error) {
     console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+app.post("/rentals", async (req, res) => {
+  const { customerId, gameId, daysRented } = req.body;
+  try {
+    const game = await connection.query("SELECT * FROM games WHERE id = $1", [
+      gameId,
+    ]);
+
+    const unreturnedGames = await connection.query(
+      `SELECT * FROM rentals WHERE "gameId" = $1 AND "returnDate" is null`,
+      [gameId]
+    );
+
+    const isThereSufficientGames =
+      unreturnedGames.rows.length < game.rows[0].stockTotal;
+
+    const customer = await connection.query(
+      "SELECT * FROM customers WHERE id = $1",
+      [customerId]
+    );
+
+    const isCustomerIdAndGameIdValids =
+      !!game.rows.length && !!customer.rows.length;
+
+    const isDaysRentedValid = daysRented > 0;
+
+    if (
+      isCustomerIdAndGameIdValids &&
+      isThereSufficientGames &&
+      isDaysRentedValid
+    ) {
+      const dateNow = dayjs().format("YYYY-MM-DD");
+
+      const { pricePerDay } = game.rows[0];
+      const originalPrice = daysRented * pricePerDay;
+
+      await connection.query(
+        `
+    INSERT INTO rentals
+    ("customerId", "gameId","rentDate","daysRented","returnDate","originalPrice","delayFee")
+    VALUES
+    ($1,$2,$3,$4,$5,$6,$7)
+    `,
+        [customerId, gameId, dateNow, daysRented, null, originalPrice, null]
+      );
+
+      res.sendStatus(201);
+    } else {
+      res.sendStatus(400);
+    }
+  } catch (err) {
     res.sendStatus(500);
   }
 });
