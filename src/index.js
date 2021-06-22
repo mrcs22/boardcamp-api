@@ -364,7 +364,49 @@ app.post("/rentals", async (req, res) => {
   }
 });
 
-// ############# STARTING SERVER  ###############
+app.post("/rentals/:id/return", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rentals = await connection.query(
+      `SELECT rentals.*, games."pricePerDay" 
+      FROM rentals JOIN games
+      ON rentals."gameId" = games.id
+      WHERE rentals.id = $1`,
+      [id]
+    );
+    const rental = rentals.rows[0];
+
+    if (!!rental.returnDate) {
+      return res.sendStatus(400);
+    }
+
+    if (rentals.rows.length !== 0) {
+      const returnDate = dayjs().format("YYYY-MM-DD");
+
+      const daysDiff =
+        dayjs(returnDate).diff(rental.rentDate, "d") - rental.daysRented;
+      const delayFee = daysDiff > 0 ? daysDiff * rental.pricePerDay : null;
+
+      await connection.query(
+        `
+    UPDATE rentals 
+    SET "delayFee" = $1, "returnDate" = $2
+    WHERE id = $3
+    `,
+        [delayFee, returnDate, id]
+      );
+
+      return res.sendStatus(200);
+    }
+
+    return res.sendStatus(404);
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+// ############# STARTING SERVER ###############
 
 app.listen(4000, () => {
   console.log("server running at port 4000");
